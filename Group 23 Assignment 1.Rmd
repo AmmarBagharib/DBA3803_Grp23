@@ -1,0 +1,58 @@
+---
+title: "Group 23"
+date: "9/11/2022"
+output: html_document
+---
+
+```{r}
+library(plyr)
+library(dplyr)
+library(stringr)
+library(readxl)
+library(glmnet)
+```
+
+```{r}
+data <- na.omit(read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9)) #25292
+N_industry = sample(48, 6) # Sample out 6 industry
+columns <- colnames(data)[c(1, N_industry)] # Take out 6 columns out of the chosen industry
+w_ew = matrix(1/length(N_industry), nrow = length(N_industry), ncol = 1) # Get the equally weighted matrix
+N = rbind(diag(length(N_industry) - 1), -1) # N as identified in the mathematical equation
+
+# Number of rows to collect = 63 to estimate the covariance matrix E
+end_row <- which(data$X == '20211231') # To identify the row that correspond to the date
+start_row <- end_row - 63 + 1 # To get the starting data to collect for the 63 observations
+data1 <- data[columns][start_row:end_row,] # 63 datas
+demean_data <- scale(data1[columns[2:length(columns)]], scale = F) # Scale the data such that the data is demean where the sample mean of each asset return is 0
+y = demean_data %*% w_ew # Matrix multiplication of Rwew
+X = demean_data %*% N # Matrix multiplication of RN
+lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F) # 
+ridge = cv.glmnet(X,y, alpha = 0, standardise = F, intercept = F)
+plot(lasso, sign.lambda = -1)
+plot(ridge, sign.lambda = -1)
+```
+
+```{r}
+getcvplot = function(Nindustry){
+    data <- na.omit(read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9)) #25292
+    N_industry = sample(c(2:49), Nindustry) 
+    columns <- colnames(data)[c(1, N_industry)]
+    print(columns)
+    w_ew = matrix(1/length(N_industry), nrow = length(N_industry), ncol = 1) 
+    N = rbind(diag(length(N_industry) - 1), -1)
+    
+    # Number of rows to collect = 63 to estimate the covariance matrix E
+    end_row <- which(data$X == '20211231')
+    start_row <- end_row - 63 + 1
+    data1 <- data[columns][start_row:end_row,]
+    demean_data <- scale(data1[columns[2:length(columns)]], scale = F)
+    y = demean_data %*% w_ew
+    X = demean_data %*% N
+    lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F)
+    ridge = cv.glmnet(X,y, alpha = 0)
+    par(mfrow = c(1,2))
+    plot(lasso, sign.lambda = -1)
+    plot(ridge, sign.lambda = -1, xlim = c(-1,1))
+}
+```
+
