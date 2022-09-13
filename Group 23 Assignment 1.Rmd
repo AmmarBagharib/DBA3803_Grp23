@@ -56,10 +56,3 @@ getcvplot = function(Nindustry){
 }
 ```
 
-
-```{r}
-#lets add this code to github'
-##this is my first attempt
-library(ggplot2)
-```
-
