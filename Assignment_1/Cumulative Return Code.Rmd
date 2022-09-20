@@ -4,6 +4,7 @@ date: "9/11/2022"
 output: html_document
 ---
 
+#loading packages
 ```{r}
 library(dplyr)
 library(glmnet)
@@ -11,6 +12,7 @@ library(lubridate)
 library(ggplot2)
 ```
 
+#loading the File
 ```{r}
 data <- na.omit(read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = "-99.99"))
 
@@ -27,9 +29,9 @@ w_ew <- matrix(1/length(N_industry), nrow = length(N_industry), ncol = 1) # Get 
 # N identity matrix as identified in the mathematical equation
 N <- rbind(diag(length(N_industry) - 1), matrix(-1, ncol = length(N_industry) - 1)) 
 
-# To identify the row that correspond to the date
+# Choosing start and end dates
 end_row <- which(data$Dates == "20220103") 
-start_row <- which(data$Dates =="20120103")  # To get the starting data to collect for the 63 observations
+start_row <- which(data$Dates =="20120103")
 
 #convert dates column into date format
 data <- data %>% mutate(Dates = ymd(as.character(Dates)))
@@ -50,6 +52,7 @@ lasso <- cv.glmnet(x, y, alpha = 1, standardise = F, intercept = F)
 ridge <- cv.glmnet(x, y, alpha = 0, standardise = F, intercept = F) 
 ```
 
+#deriving beta and weights
 ```{r}
 #applying weights of coefficients.
 lasso_beta <- t(matrix(coef(lasso, s = "lambda.min")))[-1] #or should we use lambda.1se?
@@ -60,7 +63,7 @@ ridge_weights <- w_ew - N %*% ridge_beta
 
 ```
 
-
+#function to extract daily returns
 ```{r}
 daily_returns <- function(weights, df){
   # weights = lasso_weights
@@ -79,7 +82,7 @@ daily_returns <- function(weights, df){
 }
 ```
 
-
+#daily returns for lasso, ridge, ew
 ```{r}
 lasso_daily_returns <- daily_returns(lasso_weights, data1)
 ridge_daily_returns <- daily_returns(ridge_weights, data1)
@@ -92,7 +95,7 @@ cum_ew_returns_vector <- c(10 * (1 + ew_daily_returns[1] / 100))
 
 ```
 
-
+#function to return vector of cumulative returns
 ```{r}
 cum_return <- function(df, return_vector, cum_return_vector){
   #function returns cum return for initial investment of $10
@@ -113,7 +116,7 @@ cum_return <- function(df, return_vector, cum_return_vector){
 }
 ```
 
-
+#create dataframe consisting of respective cum returns
 ```{r}
 lasso_cum_return <- cum_return(data1, lasso_daily_returns, cum_lasso_returns_vector) #lasso regularised cum return
 ridge_cum_return <- cum_return(data1, ridge_daily_returns, cum_ridge_returns_vector) #ridge regularised cum return
