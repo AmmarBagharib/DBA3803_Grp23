@@ -39,9 +39,6 @@ data <- data %>% mutate(Dates = ymd(as.character(Dates)))
 #slice data to obtain 6 industries with respective 63 daily returns
 data1 <- data[columns][start_row:end_row,]
 
-# convert dates column
-data1 <- data1 %>% mutate(Dates = ymd(Dates))
-
 # Scale the data such that the data is demean where the sample mean of each asset return is 0
 # by specifying center=T and scale=F, we aim to subtract the mean from each individual return but NOT dividing by the standard deviation.
 demean <- scale(data1[, c(2:length(columns))], center=T, scale = F) 
