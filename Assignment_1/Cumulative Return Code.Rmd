@@ -68,7 +68,7 @@ daily_returns <- function(weights, df){
   #function to return vector of daily returns
   #initialise vector of returns
   returns <- c()
-  #for loop to generate returns from lasso regularised model
+  #for loop to generate returns from model
   for (i in 1:nrow(df)){
     #sumproduct weights and individual returns
     day_return <- crossprod(as.vector(weights), as.numeric(as.vector(df[i, 2:ncol(df)])))
