@@ -95,7 +95,7 @@ cum_ew_returns_vector <- c(10 * (1 + ew_daily_returns[1] / 100))
 
 ```{r}
 cum_return <- function(df, return_vector, cum_return_vector){
-  #function returns cum return for initial investment of $1000 
+  #function returns cum return for initial investment of $10
   #inputs 'return vector' is the vector of daily returns
   # df = data1
   # return_vector = lasso_daily_returns
