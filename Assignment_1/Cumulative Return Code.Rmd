@@ -85,7 +85,7 @@ lasso_daily_returns <- daily_returns(lasso_weights, data1)
 ridge_daily_returns <- daily_returns(ridge_weights, data1)
 ew_daily_returns <- daily_returns(w_ew, data1)
 
-#initialise vector of cumulative returns with initial investment of $1000 for both ridge and lasso
+#initialise vector of cumulative returns with initial investment of $10
 cum_lasso_returns_vector <- c(10 * (1 + lasso_daily_returns[1] / 100))
 cum_ridge_returns_vector <- c(10 * (1 + ridge_daily_returns[1] / 100))
 cum_ew_returns_vector <- c(10 * (1 + ew_daily_returns[1] / 100))
