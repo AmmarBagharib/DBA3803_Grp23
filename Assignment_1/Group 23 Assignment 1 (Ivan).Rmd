@@ -1,0 +1,250 @@
+---
+title: "Group 23"
+date: "9/11/2022"
+output: html_document
+---
+
+```{r}
+library(plyr)
+library(dplyr)
+library(stringr)
+library(readxl)
+library(glmnet)
+library(ggplot2)
+library(lubridate)
+```
+
+```{r}
+data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = '-99.99') #25292
+N_industry = c(2,3,4,5,6,7) # sample(c(2:49), 6) # Sample out 6 industry
+columns <- colnames(data)[c(1, N_industry)] # Take out 6 columns out of the chosen industry
+w_ew = matrix(1/length(N_industry), nrow = length(N_industry), ncol = 1) # Get the equally weighted matrix
+N = rbind(diag(length(N_industry) - 1), -1) # N as identified in the mathematical equation
+
+# Number of rows to collect = 63 to estimate the covariance matrix E
+end_row <- which(data$X == '20211231') # To identify the row that correspond to the date
+start_row <- end_row - 63 + 1 # To get the starting data to collect for the 63 observations
+data1 <- data[columns][start_row:end_row,] # 63 datas
+demean_data <- scale(data1[-1], scale = F) # Scale the data such that the data is demean where the sample mean of each asset return is 0
+y = demean_data %*% w_ew # Matrix multiplication of Rwew
+X = demean_data %*% N # Matrix multiplication of RN
+lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F) # Train the model using Lasso and does 10-fold cross validation and produce the best lambda 
+ridge = cv.glmnet(X,y, alpha = 0, standardise = F, intercept = F) # Train the model using Ridge and does 10-fold cross validation and produce the best lambda 
+plot(lasso, sign.lambda = -1)
+plot(ridge, sign.lambda = -1)
+```
+
+# Question 1 & 2
+
+```{r}
+data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = '-99.99') #25292
+
+# Sampling for 6 industry
+# N_industry = sample(c(2:49), 6) 
+N_industry # 34 43 17 44 12  8
+columns <- colnames(data)[c(1, N_industry)]
+columns
+
+getcvplot = function(Nindustry){
+    w_ew = matrix(1/length(N_industry), nrow = length(N_industry), ncol = 1) 
+    N = rbind(diag(length(N_industry) - 1), -1)
+    # Number of rows to collect = 63 to estimate the covariance matrix E
+    end_row <- which(data$X == '20211231')
+    start_row <- end_row - 63 + 1
+    data1 <- data[columns][start_row:end_row,]
+    demean_data <- scale(data1[-1], center = T, scale = F)
+    y = demean_data %*% w_ew
+    X = demean_data %*% N
+    lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F)
+    ridge = cv.glmnet(X,y, alpha = 0)
+    par(mfrow = c(1,2))
+    plot(lasso, sign.lambda = -1, main = paste(Nindustry, 'Industries in Lasso'))
+    plot(ridge, sign.lambda = -1, main = paste(Nindustry, 'Industries in Ridge'))
+}
+
+getcvplot(6)
+```
+
+
+
+
+
+# Question 4
+```{r}
+# EW Plot
+# data <- na.omit(read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9)) #25292
+data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = '-99.99') #25292
+data <- data[which(data$X == '19880412'):which(data$X == '20220630'),] # 20160104 till date
+data1 <- data %>% mutate(Total = rowSums(data[-1]/48, na.rm = T), Total = Total/100) %>% select(X, Total)
+rownames(data1) <- NULL
+
+data_yest <- data1[1, ]
+data_tdy <- data1[1 + 1, ]
+
+x <- data1[1, ]
+returns <- data.frame('Dates' = x$X, 'Cummulative_Returns' = 1 + (1 * x$Total))
+for (i in seq(2,nrow(data1))){
+    data_yest <- returns[i - 1, ]
+    data_tdy <- data1[i, ]
+    returns <- rbind(returns, c('Dates' = data_tdy$X, 'Cummulative_Returns' = as.numeric(data_yest$Cummulative_Returns) + as.numeric(data_yest$Cummulative_Returns)*data_tdy$Total))
+}
+returns$Dates <- ymd(returns$Dates)
+returns$Cummulative_Returns <- as.numeric(returns$Cummulative_Returns)
+ggplot(returns) + geom_line(aes(Dates, Cummulative_Returns))
+```
+
+```{r}
+# EW Plot
+data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = '-99.99') #25292
+data <- data[which(data$X == '19880412'):which(data$X == '20220630'),] # 20160104 till date
+data1 <- data %>% mutate(Total = rowSums(data[-1]/48, na.rm = T), Total = Total/100) %>% select(X, Total)
+rownames(data1) <- NULL
+
+data_yest <- data1[1, ]
+data_tdy <- data1[1 + 1, ]
+
+x <- data1[1, ]
+returns <- data.frame('Dates' = x$X, 'Cummulative_Returns' = 1 + (1 * x$Total))
+for (i in seq(2,nrow(data1))){
+    data_yest <- returns[i - 1, ]
+    data_tdy <- data1[i, ]
+    returns <- rbind(returns, c('Dates' = data_tdy$X, 'Cummulative_Returns' = as.numeric(data_yest$Cummulative_Returns) + as.numeric(data_yest$Cummulative_Returns)*data_tdy$Total))
+}
+returns$Dates <- ymd(returns$Dates)
+returns$Cummulative_Returns <- as.numeric(returns$Cummulative_Returns)
+
+# Lasso and Ridge Return
+data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = '-99.99') #25292
+data <- data[which(data$X == '19880412'):which(data$X == '20220630'),] # 20160104 till date
+rownames(data) <- NULL
+N_industry <- length(names(data)) - 1
+
+w_ew <- matrix(1/N_industry , nrow = N_industry)
+R <- scale(data[-1], center = T, scale = F)
+N <- rbind(diag(N_industry - 1), -1)
+y = R %*% w_ew
+X = R %*% N
+lasso <- cv.glmnet(X, y, alpha = 1, standardise = F, intercept = F)
+ridge <- cv.glmnet(X, y, alpha = 0, standardise = F, intercept = F)
+
+# Computation of Lasso Return
+beta_lasso <- matrix(coef(lasso, )[-1])
+w_lasso <- w_ew - N %*% beta_lasso
+data1 <- data %>% mutate(Total = rowSums(as.numeric(t(w_lasso)) * data[-1]), Total = Total/100) %>% select(X, Total)
+x <- data1[1, ]
+returns1 <- data.frame('Dates' = x$X, 'Cummulative_Returns' = 1 + (1 * x$Total))
+for (i in seq(2,nrow(data1))){
+    data_yest <- returns1[i - 1, ]
+    data_tdy <- data1[i, ]
+    returns1 <- rbind(returns1, c('Dates' = data_tdy$X, 'Cummulative_Returns' = as.numeric(data_yest$Cummulative_Returns) + as.numeric(data_yest$Cummulative_Returns)*data_tdy$Total))
+} 
+returns1$Dates <- ymd(returns1$Dates)
+returns1$Cummulative_Returns <- as.numeric(returns1$Cummulative_Returns)
+
+# Computation of Ridge Return
+beta_ridge <- matrix(coef(ridge, )[-1])
+w_ridge <- w_ew - N %*% beta_ridge
+data2 <- data %>% mutate(Total = rowSums(as.numeric(t(w_ridge)) * data[-1]), Total = Total/100) %>% select(X, Total)
+x <- data2[1, ]
+returns2 <- data.frame('Dates' = x$X, 'Cummulative_Returns' = 1 + (1 * x$Total))
+for (i in seq(2,nrow(data2))){
+    data_yest <- returns2[i - 1, ]
+    data_tdy <- data2[i, ]
+    returns2 <- rbind(returns2, c('Dates' = data_tdy$X, 'Cummulative_Returns' = as.numeric(data_yest$Cummulative_Returns) + as.numeric(data_yest$Cummulative_Returns)*data_tdy$Total))
+} 
+returns2$Dates <- ymd(returns2$Dates)
+returns2$Cummulative_Returns <- as.numeric(returns2$Cummulative_Returns)
+
+# Computation of MinVar Return
+
+data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = '-99.99') #25292
+
+data <- cbind(data[1], data[-1] /100)
+end_row <- which(data$X == '20211231')
+start_row <- end_row - 63 + 1
+data1 <- data[start_row:end_row,]
+rownames(data1) <- NULL
+N_industry <- length(names(data1)) - 1
+
+w_ew <- matrix(1/N_industry , nrow = N_industry)
+R <- scale(data1[-1], center = T, scale = F)
+N <- rbind(diag(N_industry - 1), -1)
+y = R %*% w_ew
+X = R %*% N
+
+beta_minvar <- coef(lm(y ~ X))[-1]
+w <- w_ew - N %*% beta_minvar
+w
+data3 <- data %>% mutate(Total = rowSums(as.numeric(t(w)) * data[-1]), Total = Total/100) %>% select(X, Total)
+x <- data3[1, ]
+returns3 <- data.frame('Dates' = x$X, 'Cummulative_Returns' = 1 + (1 * x$Total))
+for (i in seq(2,nrow(data3))){
+    data_yest <- returns3[i - 1, ]
+    data_tdy <- data3[i, ]
+    returns3 <- rbind(returns3, c('Dates' = data_tdy$X, 'Cummulative_Returns' = as.numeric(data_yest$Cummulative_Returns) + as.numeric(data_yest$Cummulative_Returns)*data_tdy$Total))
+} 
+returns3$Dates <- ymd(returns3$Dates)
+returns3$Cummulative_Returns <- as.numeric(returns3$Cummulative_Returns)
+
+
+# returns is equally weighted
+# returns1 is lasso
+# returns2 is ridge
+# return3 is min var
+# ggplot() + geom_line(data = returns1, aes(Dates, Cummulative_Returns, colour = 'Lasso')) + geom_line(data = returns, aes(Dates, Cummulative_Returns, colour = 'Equally_Weighted')) + geom_line(data = returns2, aes(Dates, Cummulative_Returns, colour = 'Ridge')) + geom_line(data = returns3, aes(Dates, Cummulative_Returns, colour = 'Min-Var')) + scale_colour_manual("", breaks = c("Equally_Weighted", "Lasso", "Ridge", 'Min-Var'), values = c("red", "black", 'blue', 'green'))
+ggplot() + geom_line(data = returns, aes(Dates, Cummulative_Returns, colour = 'Equally_Weighted')) + geom_line(data = returns3, aes(Dates, Cummulative_Returns, colour = 'Min-Var')) + scale_colour_manual("", breaks = c("Equally_Weighted", 'Min-Var'), values = c("red", 'green'))
+```
+
+
+```{r}
+# Computation of MinVar Return
+
+data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = '-99.99') #25292
+data <- data[which(data$X == '19880412'):which(data$X == '20220630'),] # 20160104 till date
+rownames(data) <- NULL
+N_industry <- length(names(data)) - 1
+
+w_ew <- matrix(1/N_industry , nrow = N_industry)
+R <- scale(data[-1], center = T, scale = F)
+N <- rbind(diag(N_industry - 1), -1)
+y = R %*% w_ew
+X = R %*% N
+
+beta_minvar <- coef(lm(X ~ y))['y',]
+w <- w_ew - N %*% beta_minvar
+```
+
+```{r}
+# Computation of MinVar Return
+
+data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = '-99.99') #25292
+
+data <- data %>% select(X, Agric, Food, Soda, Beer, Smoke, Toys) %>% mutate(Agric = Agric/100, Food = Food/100, Soda = Soda/100, Beer = Beer/100, Smoke = Smoke/100, Toys = Toys/100) # 20160104 till date
+end_row <- which(data$X == '20211231')
+start_row <- end_row - 63 + 1
+data1 <- data[start_row:end_row,]
+
+rownames(data1) <- NULL
+N_industry <- length(names(data1)) - 1
+
+w_ew <- matrix(1/N_industry , nrow = N_industry)
+R <- scale(data1[-1], center = T, scale = F)
+N <- rbind(diag(N_industry - 1), -1)
+y = R %*% w_ew
+X = R %*% N
+
+beta_minvar <- coef(lm(y ~ X))[-1]
+w <- w_ew - N %*% beta_minvar
+w
+data3 <- data %>% mutate(Total = rowSums(as.numeric(t(w)) * data[-1]), Total = Total/100) %>% select(X, Total)
+x <- data3[1, ]
+returns3 <- data.frame('Dates' = x$X, 'Cummulative_Returns' = 1 + (1 * x$Total))
+for (i in seq(2,nrow(data3))){
+    data_yest <- returns3[i - 1, ]
+    data_tdy <- data3[i, ]
+    returns3 <- rbind(returns3, c('Dates' = data_tdy$X, 'Cummulative_Returns' = as.numeric(data_yest$Cummulative_Returns) + as.numeric(data_yest$Cummulative_Returns)*data_tdy$Total))
+} 
+returns3$Dates <- ymd(returns3$Dates)
+returns3$Cummulative_Returns <- as.numeric(returns3$Cummulative_Returns)
+
+```
