@@ -1,0 +1,101 @@
+---
+title: "DBA3803 trial project 1"
+date: "9/12/2022"
+output: html_document
+---
+
+```{r}
+library(plyr)
+library(dplyr)
+library(stringr)
+library(readxl)
+library(glmnet)
+```
+
+
+```{r random 6 industries}
+data <- na.omit(read.csv('NEW_48_Industry_Portfolios_Daily.csv', na.strings = c("-99.99"), skip = 9)) #25292
+n_select = 6
+#N_industry = sample(48, n_select) # Sampled out 6 industries randomly
+N_industry = c(21, 39, 10, 3, 41, 34) #selected 6 industries based on random sampling.
+columns <- colnames(data)[c(1, N_industry)] # Take out the 6 columns of the chosen industry
+w_ew = matrix(1/n_select, nrow = n_select, ncol = 1) # Get the equally weighted matrix
+N = rbind(diag(length(N_industry) - 1), c(rep(-1, n_select - 1))) # N as identified in the mathematical equation
+
+# Number of rows to collect = 63 to estimate the covariance matrix E
+end_row <- which(data$X == '20220103') # To identify the row that correspond to the date
+start_row <- end_row - 63 + 1 # To get the starting data to collect for the 63 observations
+data1 <- data[columns][start_row:end_row,] # 63 observations
+demean_data <- scale(data1[-1], scale = F) # Scale the data such that the data is demean where the sample mean of each asset return is 0
+
+y = demean_data %*% w_ew # Matrix multiplication of Rwew
+X = demean_data %*% N # Matrix multiplication of RN
+lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F) #1 represents lasso, no requirement to have standardization
+ridge = cv.glmnet(X,y, alpha = 0, standardise = F, intercept = F) #0 represents ridge,  #1 represents lasso, no requirement to have standardization
+plot(lasso, sign.lambda = -1, main = paste(n_select, "Industries in Lasso"))
+plot(ridge, sign.lambda = -1, main = paste(n_select, "Industries in Ridge"))
+
+```
+
+```{r function}
+getcvplot <- function(Nindustry, date){
+  data <- na.omit(read.csv('NEW_48_Industry_Portfolios_Daily.csv', na.strings = c("-99.99"), skip = 9)) #25292
+N_industry = c(2:(Nindustry+1)) #choose the index number based on Nindustry.
+columns <- colnames(data)[c(1, N_industry)] # Take out the columns of the chosen industry
+w_ew = matrix(1/Nindustry, nrow = Nindustry, ncol = 1) # Get the equally weighted matrix
+N = rbind(diag(Nindustry - 1), c(rep(-1, Nindustry - 1))) # N as identified in the mathematical equation
+
+# Number of rows to collect = 63 to estimate the covariance matrix E
+end_row <- which(data$X == date) # To identify the row that correspond to the date
+start_row <- end_row - 63 + 1 # To get the starting data to collect for the 63 observations
+data1 <- data[columns][start_row:end_row,] # 63 observations
+demean_data <- scale(data1[-1], scale = F) # Scale the data such that the data is demean where the sample mean of each asset return is 0
+
+y = demean_data %*% w_ew # Matrix multiplication of Rwew
+X = demean_data %*% N # Matrix multiplication of RN
+lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F) #1 represents lasso, no requirement to have standardization
+ridge = cv.glmnet(X,y, alpha = 0, standardise = F, intercept = F) #0 represents ridge,  #1 represents lasso, no requirement to have standardization
+plot(lasso, sign.lambda = -1, main = paste(n_select, "Industries in Lasso"))
+plot(ridge, sign.lambda = -1, main = paste(n_select, "Industries in Ridge"))
+}
+
+getcvplot(6, 20220103)
+getcvplot(24, 20220103)
+getcvplot(48, 20220103)
+
+```
+
+```{r 1st 6 industries - debugging}
+data <- na.omit(read.csv('NEW_48_Industry_Portfolios_Daily.csv', na.strings = c("-99.99"), skip = 9)) #25292
+n_select = 6
+#N_industry = sample(48, n_select) # Sampled out 6 industries randomly
+N_industry = c(2:7) #selected first 6 industries.
+columns <- colnames(data)[c(1, N_industry)] # Take out the 6 columns of the chosen industry
+w_ew = matrix(1/n_select, nrow = n_select, ncol = 1) # Get the equally weighted matrix
+N = rbind(diag(length(N_industry) - 1), c(rep(-1, n_select - 1))) # N as identified in the mathematical equation
+
+# Number of rows to collect = 63 to estimate the covariance matrix E
+end_row <- which(data$X == '20211231') # To identify the row that correspond to the date
+start_row <- end_row - 63 + 1 # To get the starting data to collect for the 63 observations
+data1 <- data[columns][start_row:end_row,] # 63 observations
+demean_data <- scale(data1[-1], scale = F) # Scale the data such that the data is demean where the sample mean of each asset return is 0
+
+y = demean_data %*% w_ew # Matrix multiplication of Rwew
+X = demean_data %*% N # Matrix multiplication of RN
+lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F) #1 represents lasso, no requirement to have standardization
+ridge = cv.glmnet(X,y, alpha = 0, standardise = F, intercept = F) #0 represents ridge,  #1 represents lasso, no requirement to have standardization
+plot(lasso, sign.lambda = -1, main = paste(n_select, "Industries in Lasso"))
+plot(ridge, sign.lambda = -1, main = paste(n_select, "Industries in Ridge"))
+
+minvar <- lm (y ~ X)
+beta1 <- t(coef(minvar))[-1]
+
+w_ew - N %*% beta1
+
+```
+```{r other workings - not important}
+beta <- t(coef(cv.glmnet(X, y, alpha = 1, s=0)))[-1]
+
+predict(cv.glmnet(X, y, alpha = 1, s=0), newx = x[1:5,])
+
+```
