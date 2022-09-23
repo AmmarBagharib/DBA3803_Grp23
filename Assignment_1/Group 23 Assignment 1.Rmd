@@ -8,7 +8,6 @@ output: html_document
 library(plyr)
 library(dplyr)
 library(stringr)
-library(readxl)
 library(glmnet)
 library(ggplot2)
 library(lubridate)
@@ -54,14 +53,31 @@ getcvplot(Industry_48, 20220103)
 ```
 
 # Question 4
+
 #loading the File
 ```{r}
 df <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = "-99.99")
+
 colnames(df)[1] <- 'Dates' #rename dates column
+
 df$Dates <- as.character(df$Dates)
 df$row_number <- seq.int(nrow(df)) #generate row numbers
-dates_row_number <- df[which(df$Dates == '20180102'):which(df$Dates == '20220630'),] %>% select(Dates, row_number)
+
+dates_row_number <- df[which(df$Dates == '20200601'):which(df$Dates == '20220630'),] %>% select(Dates, row_number)
+
 df <- df %>% select(-row_number) #remove row_number column
+
+######################################################################
+############### Input number of industries here ######################
+
+num_of_industry <- 48
+
+######################################################################
+######################################################################
+
+################### NOTE!!!!! ########################################
+#after which, we can run all the following chunks of code to generate a cumulative return plot for lasso, ridge, minvar and ew model as a png file
+#to generate different number of industries, amend variable 'num_of_industry' above to desired number, then re-run all the following chunks of code below
 ```
 
 #Cummulative Return Code
@@ -100,7 +116,7 @@ get_weights <- function(initial_df, number_of_industry, row_number){
   minvar <- lm(y ~ x)
   
   #applying weights of coefficients.
-  lasso_beta <- t(matrix(coef(lasso, s = "lambda.min")))[-1] #or should we use lambda.1se?
+  lasso_beta <- t(matrix(coef(lasso, s = "lambda.min")))[-1] #lambda.min corresponds to the lowest MSE
   ridge_beta <- t(matrix(coef(ridge, s = "lambda.min")))[-1]
   minvar_beta <- t(matrix(coef(minvar)))[-1]
   
@@ -126,36 +142,41 @@ get_weights <- function(initial_df, number_of_industry, row_number){
 get_lasso_weights <- function(day_weights_lst){
   return (list(as.vector(day_weights_lst[[1]])))
 }
+
 get_ridge_weights <- function(day_weights_lst){
   return (list(as.vector(day_weights_lst[[2]])))
 }
+
 get_minvar_weights <- function(day_weights_lst){
   return (list(as.vector(day_weights_lst[[3]])))
 }
+
 get_ew_weights <- function(day_weights_lst){
   return (as.vector(day_weights_lst[[4]]))
 }
+
 ```
 
-## For 48 Industries
 #list of weights for each model
 ```{r}
 #initialise vector of betas for each model
 lasso_weights_lst <- c() 
 ridge_weights_lst <- c()
 minvar_weights_lst <- c()
-#for loop to derive a list of set of betas of industries for every date within data
+
+#for loop to derive a list of set of weights of industries for every date within data
 start_date_index <- dates_row_number$row_number[1]
 end_date_index <- dates_row_number$row_number[nrow(dates_row_number)]
+
 start_time <- Sys.time()
-#equally weighted matrix
-w_ew <- get_ew_weights(get_weights(df, 48, start_date_index))
+
 for (i in start_date_index:end_date_index){
-  day_weights_lst <- get_weights(df, 48, i)
-  lasso_weights_lst <- append(lasso_weights_lst, get_lasso_weights(day_weights_lst))
-  ridge_weights_lst <- append(ridge_weights_lst, get_ridge_weights(day_weights_lst))
-  minvar_weights_lst <- append(minvar_weights_lst, get_minvar_weights(day_weights_lst))
+  day_weights_lst <- get_weights(df, num_of_industry, i)
+  lasso_weights_lst <- append(lasso_weights_lst, get_lasso_weights(day_weights_lst)) #append lasso weights for the date
+  ridge_weights_lst <- append(ridge_weights_lst, get_ridge_weights(day_weights_lst))#append ridge weights for the date
+  minvar_weights_lst <- append(minvar_weights_lst, get_minvar_weights(day_weights_lst)) #append minvar weights for the date
 }
+
 end_time <- Sys.time()
 elapsed_time <- end_time - start_time
 elapsed_time
@@ -164,11 +185,7 @@ elapsed_time
 #out of sample day return function
 ```{r}
 #this function returns the out of sample return of a day given the weights of the portfolio derived from the past 63 observations
-daily_returns <- function(weights_lst, initial_df, dates_df, first_date_index){
-  # weights_lst = lasso_weights_lst
-  # initial_df = df
-  # dates_df = dates_row_number
-  
+daily_returns <- function(weights_lst, initial_df, dates_df, first_date_index, num_of_industry){
   #initialise date index
   date_index = first_date_index
   #function to return vector of daily returns
@@ -176,9 +193,8 @@ daily_returns <- function(weights_lst, initial_df, dates_df, first_date_index){
   returns <- c()
   #for loop to generate returns from lasso regularised model
   for (i in 1:nrow(dates_df)){
-    i = 1
     #sumproduct weights and individual returns
-    day_return <- crossprod(weights_lst[[i]], as.numeric(as.vector(df[date_index, 2:ncol(df)])))
+    day_return <- crossprod(weights_lst[[i]], as.numeric(as.vector(df[date_index, 2:(num_of_industry + 1)])))
     #append weighted return
     returns <- append(returns, day_return)
     date_index <- date_index + 1 #increase date index
@@ -186,7 +202,7 @@ daily_returns <- function(weights_lst, initial_df, dates_df, first_date_index){
   return (returns)
 }
 
-daily_ew_returns <- function(equally_weighted_matrix, initial_df,  dates_df, first_date_index){
+daily_ew_returns <- function(equally_weighted_matrix, initial_df,  dates_df, first_date_index, num_of_industry){
   #initialise date index
   date_index = first_date_index
   #function to return vector of daily returns
@@ -194,9 +210,8 @@ daily_ew_returns <- function(equally_weighted_matrix, initial_df,  dates_df, fir
   returns <- c()
   #for loop to generate returns from lasso regularised model
   for (i in 1:nrow(dates_df)){
-    i = 1
     #sumproduct weights and individual returns
-    day_return <- crossprod(equally_weighted_matrix, as.numeric(as.vector(df[date_index, 2:ncol(df)])))
+    day_return <- crossprod(equally_weighted_matrix, as.numeric(as.vector(df[date_index, 2:(num_of_industry + 1)])))
     #append weighted return
     returns <- append(returns, day_return)
     date_index <- date_index + 1 #increase date index
@@ -207,11 +222,17 @@ daily_ew_returns <- function(equally_weighted_matrix, initial_df,  dates_df, fir
 
 #create vector of daily returns and initialise vector of cumulative returns
 ```{r}
-lasso_daily_returns <- daily_returns(lasso_weights_lst, df, dates_row_number, start_date_index)
-ridge_daily_returns <- daily_returns(ridge_weights_lst, df, dates_row_number, start_date_index)
-ew_daily_returns <- daily_ew_returns(w_ew, df, dates_row_number, start_date_index)
-minvar_daily_returns <- daily_returns(minvar_weights_lst, df, dates_row_number, start_date_index)
+
+#equally weighted matrix
+w_ew <- get_ew_weights(get_weights(df, num_of_industry, start_date_index))
+
+lasso_daily_returns <- daily_returns(lasso_weights_lst, df, dates_row_number, start_date_index, num_of_industry)
+ridge_daily_returns <- daily_returns(ridge_weights_lst, df, dates_row_number, start_date_index, num_of_industry)
+ew_daily_returns <- daily_ew_returns(w_ew, df, dates_row_number, start_date_index, num_of_industry)
+minvar_daily_returns <- daily_returns(minvar_weights_lst, df, dates_row_number, start_date_index, num_of_industry)
+
 #write.csv(ew_daily_returns, "ew_daily_returns.csv")
+
 #initialise vector of cumulative returns with initial investment of $1 for both ridge and lasso
 cum_lasso_returns_vector <- c(1* (1 + lasso_daily_returns[1] / 100))
 cum_ridge_returns_vector <- c(1 * (1 + ridge_daily_returns[1] / 100))
@@ -224,11 +245,7 @@ cum_minvar_returns_vector <- c(1 * (1 + minvar_daily_returns[1] / 100))
 cum_return <- function(dates_df, return_vector, cum_return_vector){
   #function returns cum return for initial investment of $1
   #inputs 'return vector' is the vector of daily returns
-  # df = data1
-  # return_vector = lasso_daily_returns
-  # cum_return_vector = cum_lasso_returns_vector
   for (i in 2:nrow(dates_df)){
-    #i = 1
     # return of that day
     return <- 1 + return_vector[i] / 100
     # new cum return based on previous day daily return
@@ -240,12 +257,13 @@ cum_return <- function(dates_df, return_vector, cum_return_vector){
 }
 ```
 
-## creting df of returns for all models
+## creating df of returns for all models
 ```{r}
 lasso_cum_return <- cum_return(dates_row_number, lasso_daily_returns, cum_lasso_returns_vector) #lasso regularised cum return
 ridge_cum_return <- cum_return(dates_row_number, ridge_daily_returns, cum_ridge_returns_vector) #ridge regularised cum return
 ew_cum_return <- cum_return(dates_row_number, ew_daily_returns, cum_ew_returns_vector) #equally weighted cum return
 minvar_cum_return <- cum_return(dates_row_number, minvar_daily_returns, cum_minvar_returns_vector) #equally weighted cum return
+
 #create returns dataframe
 returns_df <- dates_row_number %>% 
   select(Dates) %>%
@@ -256,26 +274,32 @@ returns_df <- dates_row_number %>%
          MinVar_Cum_Return = minvar_cum_return)
 ```
 
-##plotting graph
+##plotting graph and saving as .png file
 ```{r}
-ggplot(returns_df, aes(x = Dates)) +
+plt <- ggplot(returns_df, aes(x = Dates)) +
   geom_line(aes(y = Ridge_Cum_Return, color = "Ridge")) +
   geom_line(aes(y = Lasso_Cum_Return, color = "LASSO")) +
   geom_line(aes(y = EW_Cum_Return, color = "Equally-Weighted")) +
   geom_line(aes(y = MinVar_Cum_Return, color = "MinVar")) +
   scale_color_manual(name = "Legend", 
                      values = c(
-                       "Ridge" = "blue", 
-                       "LASSO" = "red", 
-                       "Equally-Weighted" = "black",
-                       "MinVar" = "darkred"
+                       "Ridge" = "#146FC2", 
+                       "LASSO" = "#4fa861", 
+                       "Equally-Weighted" = "#2A363B",
+                       "MinVar" = "#db3c30"
                        )
                      ) +
-  labs(title = "Cumulative Return", subtitle = "based on $1 initial investment", y = '', x = "Dates") +
+  labs(title = paste("Cumulative Return for ", num_of_industry, " industries"), 
+       subtitle = "based on $1 initial investment", 
+       y = 'Portfolio Value', 
+       x = "Dates") +
   theme(plot.title = element_text(face="bold"),
-        plot.subtitle = element_text(face = "italic"))
+        plot.subtitle = element_text(face = "italic")) +
+  theme_bw()
+
+ggsave(filename = paste(num_of_industry, " industries cum return.png"), 
+       plot = plt, 
+       height = 7,
+       width = 12)
+
 ```
-## For 24 Industries
-
-## For 6 Industries
-
