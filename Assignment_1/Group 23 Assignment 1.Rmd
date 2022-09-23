@@ -54,7 +54,7 @@ getcvplot(Industry_48, 20220103)
 
 # Question 4
 
-#loading the File
+# loading the File
 ```{r}
 df <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', skip = 9, na.strings = "-99.99")
 
@@ -80,8 +80,8 @@ num_of_industry <- 48
 #to generate different number of industries, amend variable 'num_of_industry' above to desired number, then re-run all the following chunks of code below
 ```
 
-#Cummulative Return Code
-##function to derive weights of industries
+# Cummulative Return Code
+## function to derive weights of industries
 ```{r}
 get_weights <- function(initial_df, number_of_industry, row_number){
   # initial_df = df
@@ -136,9 +136,9 @@ get_weights <- function(initial_df, number_of_industry, row_number){
 }
 ```
 
-#get weights functions
+# get weights functions
 ```{r}
-#the following functions return the weights of lasso, ridge and minvar respectively from 'get_weights' function
+# the following functions return the weights of lasso, ridge and minvar respectively from 'get_weights' function
 get_lasso_weights <- function(day_weights_lst){
   return (list(as.vector(day_weights_lst[[1]])))
 }
@@ -157,7 +157,7 @@ get_ew_weights <- function(day_weights_lst){
 
 ```
 
-#list of weights for each model
+# list of weights for each model
 ```{r}
 #initialise vector of betas for each model
 lasso_weights_lst <- c() 
@@ -182,7 +182,7 @@ elapsed_time <- end_time - start_time
 elapsed_time
 ```
 
-#out of sample day return function
+# out of sample day return function
 ```{r}
 #this function returns the out of sample return of a day given the weights of the portfolio derived from the past 63 observations
 daily_returns <- function(weights_lst, initial_df, dates_df, first_date_index, num_of_industry){
@@ -220,7 +220,7 @@ daily_ew_returns <- function(equally_weighted_matrix, initial_df,  dates_df, fir
 }
 ```
 
-#create vector of daily returns and initialise vector of cumulative returns
+# create vector of daily returns and initialise vector of cumulative returns
 ```{r}
 
 #equally weighted matrix
@@ -240,7 +240,7 @@ cum_ew_returns_vector <- c(1 * (1 + ew_daily_returns[1] / 100))
 cum_minvar_returns_vector <- c(1 * (1 + minvar_daily_returns[1] / 100))
 ```
 
-#cumulative returns function
+# cumulative returns function
 ```{r}
 cum_return <- function(dates_df, return_vector, cum_return_vector){
   #function returns cum return for initial investment of $1
@@ -274,7 +274,7 @@ returns_df <- dates_row_number %>%
          MinVar_Cum_Return = minvar_cum_return)
 ```
 
-##plotting graph and saving as .png file
+## plotting graph and saving as .png file
 ```{r}
 plt <- ggplot(returns_df, aes(x = Dates)) +
   geom_line(aes(y = Ridge_Cum_Return, color = "Ridge")) +
