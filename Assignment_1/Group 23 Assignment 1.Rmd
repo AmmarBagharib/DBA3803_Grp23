@@ -5,7 +5,6 @@ output: html_document
 ---
 
 ```{r}
-library(plyr)
 library(dplyr)
 library(stringr)
 library(glmnet)
@@ -16,23 +15,23 @@ library(lubridate)
 # Question 1 & 2
 ```{r}
 getcvplot <- function(N_industry, date){
-    data <- na.omit(read.csv('NEW_48_Industry_Portfolios_Daily.csv', na.strings = c("-99.99"), skip = 9)) #25292
-    Nindustry <- length(N_industry)
-    columns <- colnames(data)[c(1, N_industry)] # Take out the columns of the chosen industry
-    w_ew = matrix(1/Nindustry, nrow = Nindustry, ncol = 1) # Get the equally weighted matrix
-    N = rbind(diag(Nindustry - 1), c(rep(-1, Nindustry - 1))) # N as identified in the mathematical equation
-    # Number of rows to collect = 63 to estimate the covariance matrix E
-    end_row <- which(data$X == date) # To identify the row that correspond to the date
-    start_row <- end_row - 63 + 1 # To get the starting data to collect for the 63 observations
-    data1 <- data[columns][start_row:end_row,] # 63 observations
-    demean_data <- scale(data1[-1], scale = F) # Scale the data such that the data is demean where the sample mean of each asset return is 0
-    y = demean_data %*% w_ew # Matrix multiplication of Rwew
-    X = demean_data %*% N # Matrix multiplication of RN
-    lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F) #1 represents lasso, no requirement to have standardization
-    ridge = cv.glmnet(X,y, alpha = 0, standardise = F, intercept = F) #0 represents ridge, no requirement to have standardization
-    layout(matrix(c(1,2), 2, 2, byrow = TRUE))
-    plot(lasso, sign.lambda = -1, main = paste(Nindustry, "Industries in Lasso"))
-    plot(ridge, sign.lambda = -1, main = paste(Nindustry, "Industries in Ridge"))
+  data <- read.csv('NEW_48_Industry_Portfolios_Daily.csv', na.strings = c("-99.99"), skip = 9) #25292
+  Nindustry <- length(N_industry)
+  columns <- colnames(data)[c(1, N_industry)] # Take out the columns of the chosen industry
+  w_ew = matrix(1/Nindustry, nrow = Nindustry, ncol = 1) # Get the equally weighted matrix
+  N = rbind(diag(Nindustry - 1), c(rep(-1, Nindustry - 1))) # N as identified in the mathematical equation
+  # Number of rows to collect = 63 to estimate the covariance matrix E
+  end_row <- which(data$X == date) # To identify the row that correspond to the date
+  start_row <- end_row - 63 + 1 # To get the starting data to collect for the 63 observations
+  data1 <- data[columns][start_row:end_row,] # 63 observations
+  demean_data <- scale(data1[-1], scale = F) # Scale the data such that the data is demean where the sample mean of each asset return is 0
+  y = demean_data %*% w_ew # Matrix multiplication of Rwew
+  X = demean_data %*% N # Matrix multiplication of RN
+  lasso = cv.glmnet(X,y, alpha = 1, standardise = F, intercept = F) #1 represents lasso, no requirement to have standardization
+  ridge = cv.glmnet(X,y, alpha = 0, standardise = F, intercept = F) #0 represents ridge, no requirement to have standardization
+  layout(matrix(c(1,2), 2, 2, byrow = TRUE))
+  plot(lasso, sign.lambda = -1, main = paste(Nindustry, "Industries in Lasso"))
+  plot(ridge, sign.lambda = -1, main = paste(Nindustry, "Industries in Ridge"))
 }
 ```
 
