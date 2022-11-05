@@ -1,0 +1,158 @@
+---
+title: "DBA3803_PROJECT2"
+author: "Yan Ying"
+date: "11/4/2022"
+output: html_document
+---
+
+## Loading packages
+```{r}
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(pROC)
+library(tidymodels)
+library(vip)
+library(ranger)
+library(xgboost)
+library(tune)
+library(glmnet)
+library(dplyr)
+```
+
+#Train and Test Set
+```{r}
+df_train = read.csv("Project2_Train.csv", row.names = 1, stringsAsFactors = T)
+df_test = read.csv("Project2_Test.csv", row.names = 1, stringsAsFactors = T)
+
+df_train = df_train %>% mutate(Response = factor(ifelse(Response, "Yes", "No"), levels = c("Yes", "No"))) %>% 
+mutate(Region_Code = as.factor(Region_Code))
+
+df_test = df_test %>% mutate(Response = factor(ifelse(Response, "Yes", "No"), levels = c("Yes", "No"))) %>%
+mutate(Region_Code = as.factor(Region_Code))
+```
+
+## CV split + Train Control
+```{r}
+set.seed(1234)
+
+CV_split = createFolds(df_train$Response, k=5)
+
+train_ctrl = trainControl(method = "cv", number = 5,
+index = CV_split,
+classProbs = TRUE,
+summaryFunction = twoClassSummary
+)
+```
+
+##Logistic Regression Code
+```{r}
+logistic_regression = train(Response ~ ., data = df_train,
+method = "glm", family = "binomial", trControl = train_ctrl, metric = "ROC")
+
+logistic_regression
+
+```
+
+```{r}
+#Notations
+#let "Promote to an interested customer" be True Positive (tp)
+#let "Miss an interested customer" be False Negative (fn)
+#let "Promote to an uninterested customer" be False Positive (fp)
+#let "Each promotion" be True Positive + False Positive (tp+fp)
+#------------------------------------------------------------
+# #Finding the benefit/cost for the 1st Benefit structure
+# benefit_cost_old = tp*10 - fn*10 - fp*2 - (tp+fp)*1
+# 
+# #Finding the benefit/cost for the 2nd Benefit structure
+# benefit_cost_new = tp*100 - fn*100 - fp*2 - (tp+fp)*1
+#------------------------------------------------------------
+
+
+
+```
+#-----------------------------
+
+##BENEFIT STRUCTURE
+```{r}
+# Benefit Function
+#prob_pred -> prediction
+#prob_1b-> threshold
+#b_11,b_21,b_12,b_1-> tp,fn,fp,tn respectively
+
+getBenefit = function(prob_pred, actual, prob_lb, b_11, b_21, b_12, b_1){
+pred = factor(ifelse(prob_pred > prob_lb, "Yes", "No"), levels = c("Yes", "No"))
+confusion_table = table(pred, actual)
+
+benefit = confusion_table[1,1] * b_11 + confusion_table[2,1] * b_21 +
+confusion_table[1,2] * b_12 + (confusion_table[1,1] + confusion_table[1,2]) * b_1
+
+return(c(benefit, confusion_table[1,1], confusion_table[1,2], confusion_table[2,1], confusion_table[2,2]))
+}
+
+
+
+table1[1,2]
+####change "logistic_regression" here if we label differently at the top!!!#####
+prob_pred = predict(logistic_regression, df_train, type = "prob")[,1]
+```
+
+```{r}
+#1st Benefit Structure with different threshold
+a<- getBenefit(prob_pred, df_train$Response, prob_lb = 0.01, b_11 = 10, b_21 = -10, b_12 = -2, b_1 = -1)
+b<- getBenefit(prob_pred, df_train$Response, prob_lb = 0.1, b_11 = 10, b_21 = -10, b_12 = -2, b_1 = -1)
+c<-getBenefit(prob_pred, df_train$Response, prob_lb = 0.2, b_11 = 10, b_21 = -10, b_12 = -2, b_1 = -1)
+d<-getBenefit(prob_pred, df_train$Response, prob_lb = 0.5, b_11 = 10, b_21 = -10, b_12 = -2, b_1 = -1)
+data.frame(rbind(a,b,c,d))
+
+#rename the column
+#change the labels
+```
+
+```{r}
+#2nd Benefit Structure with different threshold
+getBenefit(prob_pred, df_train$Response, prob_lb = 0.01, b_11 = 100, b_21 = -100, b_12 = -2, b_1 = -1)
+getBenefit(prob_pred, df_train$Response, prob_lb = 0.1, b_11 = 100, b_21 = -100, b_12 = -2, b_1 = -1)
+getBenefit(prob_pred, df_train$Response, prob_lb = 0.2, b_11 = 100, b_21 = -100, b_12 = -2, b_1 = -1)
+getBenefit(prob_pred, df_train$Response, prob_lb = 0.5, b_11 = 100, b_21 = -100, b_12 = -2, b_1 = -1)
+```
+
+```{r}
+
+#creating a consolidated table with threshold, tp,fn, fp, tn, overall 1st benefit structure and overall 2nd benefit structure
+payoff_structure_combined <- data.frame(matrix(ncol = 7, nrow = 4))
+colnames(payoff_structure_combined) <- c("Threshold", "tp", "fn", "fp", "tn", "1st_benefit_structure", "2nd_benefit_structure")
+
+
+
+
+#issue1: need to find how to get tp,fn, fp, tn at different thresholds from the confusion table above
+#issue2: combine [threshold, tp,fn, fp, tn, overall 1st benefit structure and overall 2nd benefit structure] into a table form
+
+
+```
+
+
+```{r}
+#creating confusion matrix and getting tp,fn, fp, tn
+#confusion matrix method referenced from https://www.statology.org/confusion-matrix-in-r/
+#modifying data to have the same level
+log_predict <- predict(logistic_regression, df_train, type = "prob")
+prediction <- factor(ifelse(log_predict[,1] > as.numeric(0.1), "Yes", "No"), levels = c("Yes", "No"))
+prediction
+
+matrix <- confusionMatrix(prediction, df_train$Response)
+table <- matrix[["table"]]
+table
+
+tp<- table[1,1]
+tp
+fn<-table[1,2]
+fn
+fp<-table[2,1]
+fp
+tn<-table[2,2]
+tn
+
+```
