@@ -83,7 +83,7 @@ b <- getBenefit(prob_pred, df_train$Response, threshold = 0.1, tp = 10, fn = -10
 c <- getBenefit(prob_pred, df_train$Response, threshold = 0.2, tp = 10, fn = -10, fp = -2, allpositive = -1)
 d <- getBenefit(prob_pred, df_train$Response, threshold = 0.5, tp = 10, fn = -10, fp = -2, allpositive = -1)
 
-# combining tp,fp,fn,tn values, threshold and benefit in one table
+# combining threshold, tp,fn,fp,tn values and benefit in one table
 payoff_structure_combined1 <- data.frame(rbind(a,b,c,d))
 payoff_structure_combined1
 ```
@@ -95,13 +95,13 @@ f <- getBenefit(prob_pred, df_train$Response, threshold = 0.1, tp = 100, fn = -1
 g <- getBenefit(prob_pred, df_train$Response, threshold = 0.2, tp = 100, fn = -100, fp = -2, allpositive = -1)
 h <- getBenefit(prob_pred, df_train$Response, threshold = 0.5, tp = 100, fn = -100, fp = -2, allpositive = -1)
 
-# combining tp,fp,fn,tn values, threshold and benefit in one table
+# combining threshold, tp,fn,fp,tn values and benefit in one table
 payoff_structure_combined2 <- data.frame(rbind(e,f,g,h)) 
 payoff_structure_combined2
 ```
 
 ```{r}
-# since tp,fp,fn,tn has the same values no matter the benefit structure and only benefits change
+# since tp,fn,fp,tn has the same values no matter the benefit structure and only benefits change
 # we can combine "payoff_structure_combined1" with the benefit (last column) of "payoff_structure_combined2" into a dataframe
 final_payoff_structure_combined <- cbind(payoff_structure_combined1, payoff_structure_combined2[,6])
 
