@@ -1,0 +1,184 @@
+---
+title: "DBA3803 Project 2"
+author: "Ammar"
+output: html_document
+---
+
+## Initial Setup
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(pROC)
+library(tidymodels)
+library(vip)
+library(ranger)
+library(xgboost)
+library(tune)
+library(glmnet)
+library(tictoc)
+library(MLeval)
+```
+
+
+```{r}
+#load train df
+df_train <- read.csv("Project2_Train.csv", row.names = 1, stringsAsFactors = TRUE)
+
+#load test df
+df_test <- read.csv("Project2_Test.csv", row.names = 1, stringsAsFactors = TRUE)
+```
+
+
+```{r}
+df_train <- df_train %>% mutate(
+  #mutate response column to "Yes" and "No"
+  Response_factor = factor(ifelse(Response == 1, "Yes", "No"), levels = c("Yes", "No"))) %>%
+  #convert region code to factor
+  mutate(Region_Code_factor = as.factor(Region_Code)) %>%
+  select(-c(Response, Region_Code))
+
+#remove id and Mystery
+df_train1 <- df_train %>% select(-c(Mystery, id))
+
+df_test <- df_test %>% mutate(
+  #mutate response column to "Yes" and "No"
+  Response_factor = factor(ifelse(Response, "Yes", "No"),levels = c("Yes", "No"))) %>% 
+  #convert region code to factor
+  mutate(Region_Code_factor = as.factor(Region_Code)) %>%
+  select(-c(Response, Region_Code))
+```
+
+## CV split + Train Control
+```{r}
+set.seed(5432)
+
+#create train/ test indexes
+my_folds <- createFolds(df_train$Response_factor, k=5)
+
+#create a shared train control based on 5-fold CV
+train_ctrl <- trainControl(
+  method = "cv", 
+  number = 3,
+  index = my_folds,
+  classProbs = TRUE,
+  verboseIter = FALSE,
+  summaryFunction = twoClassSummary
+)
+
+```
+
+## Logistic Regression
+```{r}
+# Fit glmnet model: model_glmnet
+logistic_reg <- train(Response_factor ~ ., 
+                      data = df_train1,
+                      method = "glm", 
+                      family = "binomial", 
+                      trControl = train_ctrl, 
+                      metric = "ROC")
+
+summary(logistic_reg)
+
+```
+
+```{r}
+#classification tree model
+classification <- train(Response_factor ~ . , 
+                       data = df_train1,
+                       method = "rpart", 
+                       trControl = train_ctrl, 
+                       metric = "ROC")
+```
+
+```{r}
+#classification results
+classification
+```
+
+## Gradient Boosting
+```{r}
+gradient_boost = train(Response_factor ~ . , 
+                       data = df_train1,
+                       method = "gbm", 
+                       trControl = train_ctrl, 
+                       metric = "ROC", 
+                       verbose = FALSE,
+                       )
+
+```
+
+```{r}
+#getModelInfo(gradient_boost)
+gradient_boost
+```
+
+## plot AUC ROC curve
+```{r}
+res <- evalm()
+```
+
+
+```{r}
+#attempt adaptive search for caret since grid and random search may be difficult to optimise
+adaptiveControl <- trainControl(
+  method = "adaptive_cv",
+  number = 3,
+  index = my_folds,
+  adaptive = list(
+    min = 2, #minimum number of resamples per hyperparameter
+    alpha = 0.05, #confidence level for removing hyperparameters
+    method = "gls", #linear
+    complete = TRUE #if TRUE generates full resampling set
+  ),
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary,  
+  search = "random")
+```
+
+```{r}
+tic()
+gbm_model_adaptive <- train(
+  Response_factor ~.,
+  data = df_train1,
+  method = "gbm",
+  trControl = adaptiveControl,
+  verbose = FALSE,
+  metric = "ROC"
+  )
+toc()
+
+```
+
+#adaptive gradient boosting
+```{r}
+gbm_model_adaptive
+```
+
+
+
+# comparing models
+```{r}
+model_list <- list(`Logistic Regression` = logistic_reg,
+                   `Classification Tree` = classification,
+                   GBM = gradient_boost,
+                   `Adaptive Gradient Boost` = gbm_model_adaptive
+                   )
+
+resamples <- resamples(model_list)
+
+summary(resamples)
+dotplot(resamples, metric = "ROC")
+```
+
+## Variable Importance of Gradient Boost
+```{r}
+plot(varImp(gradient_boost), top = 10)
+```
+
+```{r}
+plot(varImp(logistic_reg), top = 10)
+```
+
+
