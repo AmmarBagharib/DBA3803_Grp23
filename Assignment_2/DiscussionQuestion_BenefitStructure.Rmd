@@ -69,7 +69,7 @@ getBenefit <- function(prob_pred, actual, threshold, tp, fn, fp, allpositive){
               confusion_matrix = table(predicted, actual)
               benefit = confusion_matrix[1,1] * tp + confusion_matrix[2,1] * fn +
                         confusion_matrix[1,2] * fp + (confusion_matrix[1,1] + confusion_matrix[1,2]) * allpositive
-              return(c(threshold, confusion_matrix[1,1], confusion_matrix[1,2], confusion_matrix[2,1], confusion_matrix[2,2], benefit))
+              return(c(threshold, confusion_matrix[1,1], confusion_matrix[2,1], confusion_matrix[1,2], confusion_matrix[2,2], benefit))
               }
 
 ####change "logistic_regression" here if we label differently at the top!!!#####
@@ -106,6 +106,6 @@ payoff_structure_combined2
 final_payoff_structure_combined <- cbind(payoff_structure_combined1, payoff_structure_combined2[,6])
 
 # rename column names
-colnames(final_payoff_structure_combined) <- c("Threshold", "tp", "fn", "fp", "allpositive", "1st_benefit_structure", "2nd_benefit_structure")
+colnames(final_payoff_structure_combined) <- c("Threshold", "tp", "fn", "fp", "tn", "1st_benefit_structure", "2nd_benefit_structure")
 View(print(final_payoff_structure_combined, row.names = F))
 ```
