@@ -1,0 +1,234 @@
+---
+title: "Assignment 2"
+output: html_document
+---
+
+## Initial Setup
+```{r,, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(pROC)
+library(tidymodels)
+library(ranger)
+library(tune)
+library(glmnet)
+library(tictoc)
+library(gbm)
+```
+
+# Data Pre-Processing
+```{r}
+#load train df
+df_train <- read.csv("Project2_Train.csv", row.names = 1, stringsAsFactors = TRUE) %>% 
+    mutate(Response = factor(ifelse(Response, "Yes", "No"), levels = c("Yes", "No")), #mutate response column to "Yes" and "No"
+           Region_Code = as.factor(Region_Code))
+names(df_train) <- c('id', 'Gender', 'Age', 'Region_Code', 'Vehicle_Age', 'Vehicle_Damage', 'Premium', 'Vintage', 'Response', 'Mystery')
+
+#load test df
+df_test <- read.csv("Project2_Test.csv", row.names = 1, stringsAsFactors = TRUE) %>% 
+    mutate(Response = factor(ifelse(Response == 1, "Yes", "No"), levels = c("Yes", "No")), #mutate response column to "Yes" and "No"
+           Region_Code = as.factor(Region_Code))
+names(df_test) <- c('id', 'Gender', 'Age', 'Region_Code', 'Vehicle_Age', 'Vehicle_Damage', 'Premium', 'Vintage', 'Response', 'Mystery')
+```
+
+# CV split + Train Control
+```{r}
+set.seed(5432)
+
+#create train/ test indexes
+my_folds <- createFolds(df_train$Response, k=5)
+
+#create a shared train control based on 5-fold CV
+train_ctrl <- trainControl(
+  method = "cv",
+  index = my_folds,
+  classProbs = TRUE,
+  verboseIter = FALSE,
+  summaryFunction = twoClassSummary
+)
+```
+
+# Part 1
+
+## Dataframe for train without Mystery
+```{r}
+df_train1 <- df_train %>% select(-id, -Mystery)
+df_test1 <- df_test %>% select(-id, -Mystery)
+```
+
+## Training of Models
+```{r}
+## Logistic Regression
+logistic_reg <- train(Response ~ ., 
+                      data = df_train1,
+                      method = "glm", 
+                      family = "binomial", 
+                      trControl = train_ctrl, 
+                      metric = "ROC")
+
+## Classification Tree Model
+classification <- train(Response ~ . , 
+                       data = df_train1,
+                       method = "rpart", 
+                       trControl = train_ctrl, 
+                       metric = "ROC")
+
+## Gradient Boosting Model
+gradient_boost <- train(Response ~ . , 
+                       data = df_train1,
+                       method = "gbm", 
+                       trControl = train_ctrl, 
+                       tuneLength = 3,
+                       metric = "ROC", 
+                       verbose = FALSE)
+```
+
+# Comparing of models
+```{r}
+model_list <- list(`Logistic Regression` = logistic_reg,
+                   `Classification Tree` = classification,
+                   GBM = gradient_boost)
+
+resamples <- resamples(model_list)
+
+summary(resamples)
+```
+
+# Logistic Regression Model
+```{r}
+# Printing of Coefficient
+summary(logistic_reg) 
+```
+
+# Test Performance
+```{r}
+pred_logistic <- predict(logistic_reg, df_test1, type = "prob")
+ROC_logistic <- roc(df_test$Response, pred_logistic[,1])
+plot(ROC_logistic)
+auc(ROC_logistic)
+```
+
+
+-------------------------------------------
+
+
+# Part 2
+
+## Data Pre-Processing
+```{r}
+df_train_factor <- df_train %>% select(-id)
+df_train_integer <- df_train %>% select(-id)
+df_train_integer$Mystery <- as.numeric(gsub('M', '', df_train_integer$Mystery))
+df_train_integer$Mystery <- factor(df_train_integer$Mystery, ordered = T)# as.numeric(factor(data_train$Mystery, levels = c('M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19', 'M20'), ordered = T))
+```
+
+## Factor Encoding
+```{r}
+factor_model <- train(Response~., 
+                      method = 'ranger', 
+                      data = df_train_factor, 
+                      trControl = train_ctrl, 
+                      importance = 'impurity',
+                      metric = 'ROC')
+varImp(factor_model)
+```
+
+## Integer Encoding
+```{r}
+integer_model <- train(Response~., 
+                       method = 'ranger', 
+                       data = df_train_integer, 
+                       trControl = train_ctrl, 
+                       importance = 'impurity',
+                        metric = 'ROC')
+varImp(integer_model)
+```
+
+
+
+---------------------------------
+# Discussion Questions
+
+## Benefit Structure
+```{r}
+# create a Benefit Function
+# "Promote to an interested customer" is also known as True Positive (tp)
+# "Miss an interested customer" is also known as False Negative (fn)
+# "Promote to an uninterested customer" is also known as False Positive (fp)
+# "Each promotion" is also known as True Positive + False Positive (all positive)
+
+getBenefit <- function(prob_pred, actual, threshold, tp, fn, fp, allpositive){
+              predicted = factor(ifelse(prob_pred > threshold, "Yes", "No"), levels = c("Yes", "No"))
+              confusion_matrix = table(predicted, actual)
+              benefit = confusion_matrix[1,1] * tp + confusion_matrix[2,1] * fn +
+                        confusion_matrix[1,2] * fp + (confusion_matrix[1,1] + confusion_matrix[1,2]) * allpositive
+              return(c(threshold, confusion_matrix[1,1], confusion_matrix[2,1], confusion_matrix[1,2], confusion_matrix[2,2], benefit))
+}
+
+prob_pred <-  predict(logistic_reg, df_train1, type = "prob")[,1]
+```
+
+```{r}
+# 1st Benefit Structure
+a <- getBenefit(prob_pred, df_train$Response, threshold = 0.01, tp = 10, fn = -10, fp = -2, allpositive = -1)
+b <- getBenefit(prob_pred, df_train$Response, threshold = 0.1, tp = 10, fn = -10, fp = -2, allpositive = -1)
+c <- getBenefit(prob_pred, df_train$Response, threshold = 0.2, tp = 10, fn = -10, fp = -2, allpositive = -1)
+d <- getBenefit(prob_pred, df_train$Response, threshold = 0.5, tp = 10, fn = -10, fp = -2, allpositive = -1)
+
+# combining threshold, tp,fn,fp,tn values and benefit in one table
+payoff_structure_combined1 <- data.frame(rbind(a,b,c,d))
+payoff_structure_combined1
+```
+
+```{r}
+# 2nd Benefit Structure
+e <- getBenefit(prob_pred, df_train$Response, threshold = 0.01, tp = 100, fn = -100, fp = -2, allpositive = -1)
+f <- getBenefit(prob_pred, df_train$Response, threshold = 0.1, tp = 100, fn = -100, fp = -2, allpositive = -1)
+g <- getBenefit(prob_pred, df_train$Response, threshold = 0.2, tp = 100, fn = -100, fp = -2, allpositive = -1)
+h <- getBenefit(prob_pred, df_train$Response, threshold = 0.5, tp = 100, fn = -100, fp = -2, allpositive = -1)
+
+# combining threshold, tp,fn,fp,tn values and benefit in one table
+payoff_structure_combined2 <- data.frame(rbind(e,f,g,h)) 
+payoff_structure_combined2
+```
+
+```{r}
+# since tp,fn,fp,tn has the same values no matter the benefit structure and only benefits change
+# we can combine "payoff_structure_combined1" with the benefit (last column) of "payoff_structure_combined2" into a dataframe
+final_payoff_structure_combined <- cbind(payoff_structure_combined1, payoff_structure_combined2[,6])
+
+# rename column names
+colnames(final_payoff_structure_combined) <- c("Threshold", "tp", "fn", "fp", "tn", "1st_benefit_structure", "2nd_benefit_structure")
+rownames(final_payoff_structure_combined) <- NULL
+final_payoff_structure_combined
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
