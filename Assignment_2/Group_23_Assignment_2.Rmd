@@ -88,7 +88,7 @@ gradient_boost <- train(Response ~ . ,
 ```{r}
 model_list <- list(`Logistic Regression` = logistic_reg,
                    `Classification Tree` = classification,
-                   GBM = gradient_boost)
+                   `GBM` = gradient_boost)
 
 resamples <- resamples(model_list)
 
@@ -120,7 +120,7 @@ auc(ROC_logistic)
 df_train_factor <- df_train %>% select(-id)
 df_train_integer <- df_train %>% select(-id)
 df_train_integer$Mystery <- as.numeric(gsub('M', '', df_train_integer$Mystery))
-df_train_integer$Mystery <- factor(df_train_integer$Mystery, ordered = T)# as.numeric(factor(data_train$Mystery, levels = c('M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19', 'M20'), ordered = T))
+df_train_integer$Mystery <- factor(df_train_integer$Mystery,  levels = unique(df_train_integer$Mystery))
 ```
 
 ## Factor Encoding
@@ -143,6 +143,7 @@ integer_model <- train(Response~.,
                        importance = 'impurity',
                         metric = 'ROC')
 varImp(integer_model)
+
 ```
 
 
@@ -203,32 +204,3 @@ colnames(final_payoff_structure_combined) <- c("Threshold", "tp", "fn", "fp", "t
 rownames(final_payoff_structure_combined) <- NULL
 final_payoff_structure_combined
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
