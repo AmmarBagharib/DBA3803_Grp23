@@ -119,8 +119,8 @@ auc(ROC_logistic)
 ```{r}
 df_train_factor <- df_train %>% select(-id)
 df_train_integer <- df_train %>% select(-id)
-df_train_integer$Mystery <- as.numeric(gsub('M', '', df_train_integer$Mystery))
-df_train_integer$Mystery <- factor(df_train_integer$Mystery,  levels = unique(df_train_integer$Mystery))
+df_train_integer$Mystery <- gsub('M', '', df_train_integer$Mystery)
+df_train_integer$Mystery <- as.numeric(df_train_integer$Mystery,  levels = unique(df_train_integer$Mystery))
 ```
 
 ## Factor Encoding
@@ -204,3 +204,32 @@ colnames(final_payoff_structure_combined) <- c("Threshold", "tp", "fn", "fp", "t
 rownames(final_payoff_structure_combined) <- NULL
 final_payoff_structure_combined
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
