@@ -143,7 +143,6 @@ integer_model <- train(Response~.,
                        importance = 'impurity',
                         metric = 'ROC')
 varImp(integer_model)
-
 ```
 
 
@@ -204,30 +203,6 @@ colnames(final_payoff_structure_combined) <- c("Threshold", "tp", "fn", "fp", "t
 rownames(final_payoff_structure_combined) <- NULL
 final_payoff_structure_combined
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
